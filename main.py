@@ -1,4 +1,4 @@
-from objects import *
+from objects import IncorrectPhoneFormatException, IncorrectNameException, UnableToEditPhoneException, Name, Phone, Email, Record, AddressBook, Birthday, BirthdayFormatException
 
 
 def input_error(func):
@@ -9,13 +9,15 @@ def input_error(func):
             return "Give me name and phone please."
         except KeyError:
             return "Unable to find record"
-        except TypeError:
-            return "Internal error. Contact developer"
+        except TypeError as e:
+            return f"Internal error. Contact developer {e}" 
         except IncorrectPhoneFormatException as err:
             return err
         except IncorrectNameException as err:
             return err
         except UnableToEditPhoneException as err:
+            return err
+        except BirthdayFormatException as err:
             return err
     return inner
 
@@ -112,29 +114,56 @@ def remove_email(address_book: AddressBook, args):
 
 @input_error
 def remove(address_book: AddressBook, args):
-    name_obj = Name(args[0])
-    address_book.delete(name_obj)
+    name = Name(args[0])
+    address_book.delete(name)
     return "Removed."
 
+@input_error
+def add_birthday(address_book: AddressBook, args):
+    name, birthday = args
+    record: Record = find_contact(name, address_book)
+    try:
+        record.add_birthday(Birthday(birthday))
+        return "Birthday added."
+    except ValueError:
+        raise BirthdayFormatException(birthday)
+
+
+@input_error
+def show_birthday(address_book: AddressBook, args):
+    name = args[0]
+    record: Record = find_contact(name, address_book)
+    return  record.birthday if record.birthday else "Birthday is not provided yet. Please add birthday"
+    
 
 def get_all(address_book: AddressBook):
-    print(f"{'_'*104}")
-    print(f"|{'Name:':^40}|{'Phone:':^30}|{'Email:':^30}|")
-    print(f"|{'_'*40}|{'_'*30}|{'_'*30}|")
+    print(f"{'_'*135}")
+    print(f"|{'Name:':^40}|{'Phone:':^30}|{'Email:':^30}|{'Birthday:':^30}|")
+    print(f"|{'_'*40}|{'_'*30}|{'_'*30}|{'_'*30}|")
     if len(address_book.data) > 0:
         for record in address_book.data:
-            print(f"|{str(record.name):^40}|{', '.join(list(map(lambda rec: str(rec), record.phones))):^30}|{str(record.email) if record.email else '':^30}|")
-            print(f"|{'_'*40}|{'_'*30}|{'_'*30}|")
+            print(f"|{str(record.name):^40}|{', '.join(list(map(lambda rec: str(rec), record.phones))):^30}|{str(record.email) if record.email else '':^30}|{str(record.birthday) if record.birthday else '':^30}|")
+            print(f"|{'_'*40}|{'_'*30}|{'_'*30}|{'_'*30}|")
     else:
-        print(f"|{' '*102}|")
-        print(f"|{'No records found. Add at first':^102}|")
-        print(f"|{'_'*102}|")
+        print(f"|{' '*133}|")
+        print(f"|{'No records found. Add at first':^133}|")
+        print(f"|{'_'*133}|")
 
+def birthdays(address_book: AddressBook):
+    birthday_dict = address_book.get_birthdays_per_week()
+    print(f"{'_'*73}")
+    print(f"|{'Day:':^30}|{'Name:':^40}|")
+    print(f"|{'_'*30}|{'_'*40}|")
+    if birthday_dict:
+        for day, list_of_records in birthday_dict.items():
+            print(f"|{day:^30}|{', '.join(list(map(lambda rec: str(rec.name), list_of_records))):^40}|")
+            print(f"|{'_'*30}|{'_'*40}|")
+    else:
+        print(f"|{' '*71}|")
+        print(f"|{'No matches found.':^71}|")
+        print(f"|{'_'*71}|")
 
-def main():
-    address_book = AddressBook()
-    print("Welcome to the assistant bot!")
-    help = """
+help = """
 Available commands:
 Exit - 'close' or 'exit'
 Start work - 'hello'
@@ -146,9 +175,16 @@ Get all phones for contact - 'get-phone' <name without spaces>
 Add email - 'add-email' <name without spaces> <email>
 Change email - 'change-email' <name without spaces> <email>
 Remove email - 'remove-email' <name without spaces>
+Add/change Birthday - 'add-birthday' <name without spaces> <date in format DD.MM.YYYY>
+Get Birthday of contact - 'show-birthday' <name without spaces>
+Get list of contacts to be congratulated next week - 'birthdays'
 Remove contact - 'remove' <name without spaces> 
 Print all contacts - 'all'            
         """
+ 
+def main():
+    address_book = AddressBook()
+    print("Welcome to the assistant bot!")
     print(help)
     while True:
         user_input = input("Enter a command: ")
@@ -174,6 +210,12 @@ Print all contacts - 'all'
             print(change_email(address_book, args))
         elif command == "remove-email":
             print(remove_email(address_book, args))
+        elif command == "add-birthday":
+            print(add_birthday(address_book, args))
+        elif command == "show-birthday":
+            print(show_birthday(address_book, args))
+        elif command == "birthdays":
+            birthdays(address_book)
         elif command == 'remove':
             print(remove(address_book, args))
         elif command == "all":
